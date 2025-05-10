@@ -103,7 +103,8 @@
         },    
         {
             "text":"А ты знаешь, что такое *природа*?", 
-            "actions":["term"],      
+            "actions":["term"],  
+            "term_skip_steps":1,    
             "buttons":[
                 {
                     "type":"term_positive",
