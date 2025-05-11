@@ -65,7 +65,26 @@ def exc_handler(message):
     if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
         userInfo[message.from_user.id]['stage'] = 0         
         sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])   
-    
+
+
+@bot.message_handler(commands=['block1', "block2", "block3", "block4", "block5", "block6", "block7", "block8"]) 
+def exc_handler(message):
+    print(message.text)
+    map_ = {
+        'block1':0, 
+        "block2":16, 
+        "block3":16+23, 
+        "block4":16+23+18, 
+        "block5":16+23+18+17, 
+        "block6":16+23+18+17+14, 
+        "block7":16+23+18+17+14+17, 
+        "block8":16+23+18+17+14+17+16
+    }
+    global userInfo
+    if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
+        userInfo[message.from_user.id]['stage'] = map_[message.text.replace("/",'')]        
+        sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])  
+
 
 @bot.message_handler(commands=['parents']) 
 def parents_handler(message):

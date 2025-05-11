@@ -186,7 +186,7 @@
         {                     
             "circles":["circles/demo.mp4"],
             "actions":["term"],
-            "term_skip_steps":20,      
+            "term_skip_steps":15,      
             "buttons":[
                 {
                     "type":"term_skip_next",
@@ -197,12 +197,6 @@
                     "text":"Хочу узнать ✅"
                 }                             
             ]
-        }, 
-        {
-            "text":"Конец1"           
-        },
-        {
-            "text":"Конец2"           
-        }        
+        }      
     ]
 }
