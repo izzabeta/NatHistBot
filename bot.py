@@ -12,7 +12,7 @@ userInfo = dict()
 def sendStage(id, currentStage):
     global userInfo
     if not "buttons" in currentStage.keys() or len(currentStage['buttons'])==0:
-        reply_markup = None
+        reply_markup = types.ReplyKeyboardRemove()
     else:
         reply_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for button in currentStage['buttons']:
@@ -72,13 +72,13 @@ def exc_handler(message):
     print(message.text)
     map_ = {
         'block1':0, 
-        "block2":16, 
-        "block3":16+23, 
-        "block4":16+23+18, 
-        "block5":16+23+18+17, 
-        "block6":16+23+18+17+14, 
-        "block7":16+23+18+17+14+17, 
-        "block8":16+23+18+17+14+17+16
+        "block2":15, 
+        "block3":15+22, 
+        "block4":15+22+17, 
+        "block5":15+22+17+16, 
+        "block6":15+22+17+16+14, 
+        "block7":15+22+17+16+14+17, 
+        "block8":15+22+17+16+14+17+16
     }
     global userInfo
     if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
