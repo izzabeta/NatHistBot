@@ -53,7 +53,9 @@ def start_handler(message):
         'answeredTerms':[], 
         "nameAnswered":False,
         "needName":False,
-        'name':message.from_user.first_name
+        'name':message.from_user.first_name,
+        "check_input_started":False,
+        "check_input_amount":0
     }
 
 
@@ -90,6 +92,17 @@ def check_for_term(message, currentStage):
             elif button["type"]=="term_skip_next":
                 return False
     return None
+
+def check_for_input(message, currentStage):
+    if not "check_options" in currentStage.keys() or len(currentStage['check_options'])==0:
+        return True
+    
+    text = str(message.text).lower().strip()
+
+    for option in currentStage['check_options']:
+        if text == option:
+            return True
+    return False
 
 def check_for_right_answer(message, currentStage):
     if not "buttons" in currentStage.keys() or len(currentStage['buttons'])==0:
@@ -128,10 +141,27 @@ def general_message_handler(message):
             else:
                 bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок') 
             return
+        # проверка на ввода при загадке
+        elif "actions" in currentStage.keys() and "check_input" in currentStage['actions']:
+            res = check_for_input(message, currentStage) 
+            if userInfo[message.from_user.id]["check_input_started"] is False:
+                userInfo[message.from_user.id]["check_input_started"] = True
+                userInfo[message.from_user.id]["check_input_amout"] = 0
+            if res is True or userInfo[message.from_user.id]["check_input_amout"] >= currentStage["try_amount"]: # если правильный ответ, следующий блок
+                userInfo[message.from_user.id]['stage'] += 1
+                userInfo[message.from_user.id]["check_input_started"] = False
+                sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])
+                return
+            elif res is False: # если не правильно, увеличиваем число попыток, присылаем секцию wrong
+                userInfo[message.from_user.id]["check_input_amout"] += 1
+                sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']]['if_wrong'])
+                return
+             
         # проверка на ввод имени
-        if "actions" in currentStage.keys() and "checkName" in currentStage['actions']:
+        elif "actions" in currentStage.keys() and "checkName" in currentStage['actions']:
             userInfo[message.from_user.id]['name'] = message.text
             userInfo[message.from_user.id]['nameAnswered'] = True
+            
         # check for right answer 
         if check_for_right_answer(message, currentStage): # ответ согласно кнопкам
             userInfo[message.from_user.id]['stage'] += 1
