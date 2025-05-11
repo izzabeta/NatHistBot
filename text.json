@@ -735,7 +735,7 @@
             "poll": {
                 "question":"Кто я?",
                 "options":["Ворона", "Корова", "Ласточка", "Сова"],
-                "correct_option_id":1
+                "correct_option_id":0
             }
         }, 
         {                     
