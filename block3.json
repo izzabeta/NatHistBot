@@ -256,7 +256,7 @@
             "photo":["pics/block3/Листья.jpg", "pics/block3/Хвоя.jpg"] 
         },
         {
-        "circles":["circles/demo.mp4"],
+            "circles":["circles/demo.mp4"],
             "buttons":[
                 {
                     "type":"dummy",
