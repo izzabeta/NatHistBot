@@ -9,6 +9,7 @@ bot = telebot.TeleBot(content['telegramToken'], parse_mode='MARKDOWN')
 userInfo = dict()
 
 
+
 def sendStage(id, currentStage):
     global userInfo
     if not "buttons" in currentStage.keys() or len(currentStage['buttons'])==0:
@@ -17,31 +18,50 @@ def sendStage(id, currentStage):
         reply_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for button in currentStage['buttons']:
             reply_markup.add(types.KeyboardButton(button["text"]))
-    if "text" in currentStage.keys():
-        newText = currentStage["text"].replace("%%USERNAME%%", userInfo[id]['name'])    
-        if not reply_markup is None:        
-            bot.send_message(id, text=newText, reply_markup=reply_markup)
-        else:
-            bot.send_message(id, text=newText)
-    if "photo" in currentStage.keys():
-        for photo_path in currentStage["photo"]:
-            with open(photo_path, 'rb') as photo_file:
-                bot.send_photo(id, photo_file, reply_markup=reply_markup)
-    if "audio" in currentStage.keys():
-        for audio_path in currentStage["audio"]:
-            with open(audio_path, 'rb') as audio_file:
-                bot.send_voice(id, audio_file, reply_markup=reply_markup)
-    if "circles" in currentStage.keys():
-        for circle_path in currentStage["circles"]:
-            with open(circle_path, 'rb') as circle_file:
-                bot.send_video_note(id, circle_file, reply_markup=reply_markup)
-    if "poll" in currentStage.keys():
-        pollInfo = currentStage['poll']
-        bot.send_poll(id, pollInfo['question'], pollInfo['options'], type="quiz", correct_option_id=pollInfo['correct_option_id'], is_anonymous=False)
     
+    if "order" in currentStage.keys():
+        order = currentStage["order"]
+    else:
+        order = ["text", "photo", "audio", "circles", "poll", "poll_no_right_answer"]
+    
+    for key in order:
+        if not key in currentStage.keys():
+            continue
+        if "text" in [key]:
+            newText = currentStage["text"].replace("%%USERNAME%%", userInfo[id]['name'])    
+            if not reply_markup is None:        
+                bot.send_message(id, text=newText, reply_markup=reply_markup)
+            else:
+                bot.send_message(id, text=newText)
+        if "photo" in [key]:
+            for photo_path in currentStage["photo"]:
+                with open(photo_path, 'rb') as photo_file:
+                    bot.send_photo(id, photo_file, reply_markup=reply_markup)
+        if "audio" in [key]:
+            for audio_path in currentStage["audio"]:
+                with open(audio_path, 'rb') as audio_file:
+                    bot.send_voice(id, audio_file, reply_markup=reply_markup)
+        if "circles" in [key]:
+            for circle_path in currentStage["circles"]:
+                with open(circle_path, 'rb') as circle_file:
+                    bot.send_video_note(id, circle_file, reply_markup=reply_markup)
+        if "poll" in [key]:
+            pollInfo = currentStage['poll']
+            bot.send_poll(id, pollInfo['question'], pollInfo['options'], type="quiz", correct_option_id=pollInfo['correct_option_id'], is_anonymous=False)
+        if "poll_no_right_answer" in [key]:
+            pollInfo = currentStage['poll_no_right_answer']
+            bot.send_poll(id, pollInfo['question'], pollInfo['options'], type="regular", is_anonymous=False)
+
+def sendNextStage(id):
+    global userInfo
+    userInfo[id]['stage'] += 1
+    sendStage(id, userInfo[id]['content'][userInfo[id]['stage']])
+
+
 
 @bot.message_handler(commands=['start']) 
 def start_handler(message):
+    global content
     # markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     # btn1 = types.KeyboardButton("")
     # btn2 = types.KeyboardButton("Информация для родителей")
@@ -55,21 +75,21 @@ def start_handler(message):
         "needName":False,
         'name':message.from_user.first_name,
         "check_input_started":False,
-        "check_input_amount":0
+        "check_input_amount":0,
+        "content":content['content']
     }
 
 
 @bot.message_handler(commands=['excursion']) 
-def exc_handler(message):
+def exc_handler(message): 
     global userInfo
     if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
-        userInfo[message.from_user.id]['stage'] = 0         
-        sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])   
+        userInfo[message.from_user.id]['stage'] = -1         
+        sendNextStage(message.from_user.id)
 
 
-@bot.message_handler(commands=['block1', "block2", "block3", "block4", "block5", "block6", "block7", "block8"]) 
-def exc_handler(message):
-    print(message.text)
+@bot.message_handler(commands=['block1', "block2", "block3", "block4", "block5", "block6", "block7", "block8", "fork"]) 
+def map_handler(message):
     map_ = {
         'block1':0, 
         "block2":15, 
@@ -78,12 +98,12 @@ def exc_handler(message):
         "block5":15+22+17+16, 
         "block6":15+22+17+16+14, 
         "block7":15+22+17+16+14+17, 
-        "block8":15+22+17+16+14+17+16
+        "block8":15+22+17+16+14+17+16,
+        "fork":15+22+17+16+14-2
     }
     global userInfo
-    if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
-        userInfo[message.from_user.id]['stage'] = map_[message.text.replace("/",'')]        
-        sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])  
+    userInfo[message.from_user.id]['stage'] = map_[message.text.replace("/",'')]-1        
+    sendNextStage(message.from_user.id)
 
 
 @bot.message_handler(commands=['parents']) 
@@ -98,6 +118,19 @@ def about_handler(message):
     global userInfo
     if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
         bot.send_message(message.from_user.id, text='Об экскурсии')
+
+
+def check_for_fork(message, currentStage):
+    if not "buttons" in currentStage.keys() or len(currentStage['buttons'])==0:
+        return True
+    
+    for button in currentStage['buttons']:
+        if message.text == button['text']:
+            if button["type"]=="fork_continue":
+                return True
+            elif button["type"]=="fork_skip_next":
+                return False
+    return None
 
 
 def check_for_term(message, currentStage):
@@ -137,8 +170,7 @@ def general_message_handler(message):
     global userInfo
     if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
         if (message.text == 'Начать экскурсию'):
-            userInfo[message.from_user.id]['stage'] = 0         
-            sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])                       
+            sendNextStage(message.from_user.id)                   
         elif (message.text == "Информация для родителей"): 
             bot.send_message(message.from_user.id, text='Информация для родителей')
         elif (message.text == "Об экскурсии"): 
@@ -149,17 +181,32 @@ def general_message_handler(message):
         if "actions" in currentStage.keys() and "term" in currentStage['actions']:
             res = check_for_term(message, currentStage) 
             if res is True:
-                userInfo[message.from_user.id]['stage'] += 1
-                sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])
+                sendNextStage(message.from_user.id)
             elif res is False:
-                skip_steps = 1+1
+                skip_steps = 1
                 if "term_skip_steps" in currentStage.keys():
-                    skip_steps = int(currentStage["term_skip_steps"])+1
+                    skip_steps = int(currentStage["term_skip_steps"])
                 userInfo[message.from_user.id]['stage'] += skip_steps
-                sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])
+                sendNextStage(message.from_user.id)
             else:
                 bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок') 
             return
+        elif "actions" in currentStage.keys() and "fork" in currentStage['actions']:
+            res = check_for_fork(message, currentStage) 
+            if res is True: # fork_continue
+                sendNextStage(message.from_user.id)
+            elif res is False: # fork_skip_next
+                skip_steps = 1
+                if "fork_skip_steps" in currentStage.keys():
+                    skip_steps = int(currentStage["fork_skip_steps"])
+                userInfo[message.from_user.id]['stage'] += skip_steps
+                for el in currentStage['fork_substitution'][::-1]:
+                    userInfo[message.from_user.id]['content'].insert(userInfo[message.from_user.id]['stage'], el)
+                userInfo[message.from_user.id]['stage'] -= 1
+                sendNextStage(message.from_user.id)
+                return
+            else:
+                bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок')
         # проверка на ввода при загадке
         elif "actions" in currentStage.keys() and "check_input" in currentStage['actions']:
             res = check_for_input(message, currentStage) 
@@ -167,9 +214,8 @@ def general_message_handler(message):
                 userInfo[message.from_user.id]["check_input_started"] = True
                 userInfo[message.from_user.id]["check_input_amout"] = 0
             if res is True or userInfo[message.from_user.id]["check_input_amout"] >= currentStage["try_amount"]: # если правильный ответ, следующий блок
-                userInfo[message.from_user.id]['stage'] += 1
                 userInfo[message.from_user.id]["check_input_started"] = False
-                sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])
+                sendNextStage(message.from_user.id)
                 return
             elif res is False: # если не правильно, увеличиваем число попыток, присылаем секцию wrong
                 userInfo[message.from_user.id]["check_input_amout"] += 1
@@ -183,17 +229,14 @@ def general_message_handler(message):
             
         # check for right answer 
         if check_for_right_answer(message, currentStage): # ответ согласно кнопкам
-            userInfo[message.from_user.id]['stage'] += 1
-            sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']])
+            sendNextStage(message.from_user.id)
         else:
             bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок') 
 
 
 @bot.poll_answer_handler()
 def handle_poll_answer(pollAnswer):
-    userInfo[pollAnswer.user.id]['stage'] += 1
-    sendStage(pollAnswer.user.id, content['content'][userInfo[pollAnswer.user.id]['stage']])
-
+    sendNextStage(pollAnswer.user.id)
     
 
 
