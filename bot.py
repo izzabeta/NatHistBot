@@ -1,12 +1,12 @@
 import telebot # type: ignore
 from telebot import types # type: ignore # для указание типов
 import json
-
+from User import User
 with open("text.json", "r", encoding='utf-8') as f:
     content = json.load(f)
 
 bot = telebot.TeleBot(content['telegramToken'], parse_mode='MARKDOWN')
-userInfo = dict()
+userInfo = User.getDumps()
 
 
 
@@ -28,7 +28,7 @@ def sendStage(id, currentStage):
         if not key in currentStage.keys():
             continue
         if "text" in [key]:
-            newText = currentStage["text"].replace("%%USERNAME%%", userInfo[id]['name'])    
+            newText = currentStage["text"].replace("%%USERNAME%%", userInfo[id].name)    
             if not reply_markup is None:        
                 bot.send_message(id, text=newText, reply_markup=reply_markup)
             else:
@@ -54,8 +54,10 @@ def sendStage(id, currentStage):
 
 def sendNextStage(id):
     global userInfo
-    userInfo[id]['stage'] += 1
-    sendStage(id, userInfo[id]['content'][userInfo[id]['stage']])
+    userInfo[id].nextStage()
+    userInfo[id].misinput=0
+    sendStage(id, userInfo[id].currentStage())
+    
 
 
 
@@ -68,24 +70,18 @@ def start_handler(message):
     # btn3 = types.KeyboardButton("Об экскурсии")
     # markup.add(btn1, btn2, btn3)
     bot.send_message(message.from_user.id, text="Привет, друг! Начать экскурсию /excursion \n Информация для родителей - /parents \n Об экскурсии - /about ".format(message.from_user))
-    userInfo[message.from_user.id] = {
-        'stage':-1,
-        'answeredTerms':[], 
-        "nameAnswered":False,
-        "needName":False,
-        'name':message.from_user.first_name,
-        "check_input_started":False,
-        "check_input_amount":0,
-        "content":content['content']
-    }
+    if not message.from_user.id in userInfo.keys():
+        userInfo[message.from_user.id] = User(message.from_user.id, message.from_user.first_name, content['content'])
+    else:
+        userInfo[message.from_user.id].reset()
+
 
 
 @bot.message_handler(commands=['excursion']) 
 def exc_handler(message): 
     global userInfo
-    if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
-        userInfo[message.from_user.id]['stage'] = -1         
-        sendNextStage(message.from_user.id)
+    userInfo[message.from_user.id].reset() 
+    sendNextStage(message.from_user.id)
 
 
 @bot.message_handler(commands=['block1', "block2", "block3", "block4", "block5", "block6", "block7", "block8", "fork"]) 
@@ -102,21 +98,21 @@ def map_handler(message):
         "fork":15+22+17+16+14-2
     }
     global userInfo
-    userInfo[message.from_user.id]['stage'] = map_[message.text.replace("/",'')]-1        
+    userInfo[message.from_user.id].setStage(map_[message.text.replace("/",'')]-1)    
     sendNextStage(message.from_user.id)
 
 
 @bot.message_handler(commands=['parents']) 
 def parents_handler(message):
     global userInfo
-    if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
+    if userInfo[message.from_user.id].atNegativeStage(): # блок до начала основного контента
         bot.send_message(message.from_user.id, text='Информация для родителей')
 
 
 @bot.message_handler(commands=['about']) 
 def about_handler(message):
     global userInfo
-    if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
+    if userInfo[message.from_user.id].atNegativeStage(): # блок до начала основного контента
         bot.send_message(message.from_user.id, text='Об экскурсии')
 
 
@@ -168,7 +164,7 @@ def check_for_right_answer(message, currentStage):
 @bot.message_handler(content_types=['text'])
 def general_message_handler(message):
     global userInfo
-    if userInfo[message.from_user.id]['stage'] == -1: # блок до начала основного контента
+    if userInfo[message.from_user.id].atNegativeStage(): # блок до начала основного контента
         if (message.text == 'Начать экскурсию'):
             sendNextStage(message.from_user.id)                   
         elif (message.text == "Информация для родителей"): 
@@ -177,7 +173,7 @@ def general_message_handler(message):
             bot.send_message(message.from_user.id, text='Об экскурсии') 
         return      
     else: # основной контент
-        currentStage = content['content'][userInfo[message.from_user.id]['stage']]
+        currentStage = userInfo[message.from_user.id].currentStage()
         if "actions" in currentStage.keys() and "term" in currentStage['actions']:
             res = check_for_term(message, currentStage) 
             if res is True:
@@ -186,10 +182,14 @@ def general_message_handler(message):
                 skip_steps = 1
                 if "term_skip_steps" in currentStage.keys():
                     skip_steps = int(currentStage["term_skip_steps"])
-                userInfo[message.from_user.id]['stage'] += skip_steps
+                userInfo[message.from_user.id].addStage(skip_steps)
                 sendNextStage(message.from_user.id)
             else:
-                bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок') 
+                if userInfo[message.from_user.id].misinput < 2:
+                    bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок')
+                    userInfo[message.from_user.id].misinput += 1
+                else:
+                    sendNextStage(message.from_user.id)
             return
         elif "actions" in currentStage.keys() and "fork" in currentStage['actions']:
             res = check_for_fork(message, currentStage) 
@@ -199,39 +199,47 @@ def general_message_handler(message):
                 skip_steps = 1
                 if "fork_skip_steps" in currentStage.keys():
                     skip_steps = int(currentStage["fork_skip_steps"])
-                userInfo[message.from_user.id]['stage'] += skip_steps
-                for el in currentStage['fork_substitution'][::-1]:
-                    userInfo[message.from_user.id]['content'].insert(userInfo[message.from_user.id]['stage'], el)
-                userInfo[message.from_user.id]['stage'] -= 1
+                userInfo[message.from_user.id].addStage(skip_steps)                
+                userInfo[message.from_user.id].insertMany(currentStage['fork_substitution'])  
                 sendNextStage(message.from_user.id)
                 return
             else:
-                bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок')
+                if userInfo[message.from_user.id].misinput < 2:
+                    bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок')
+                    userInfo[message.from_user.id].misinput += 1
+                else:
+                    sendNextStage(message.from_user.id)
+                
         # проверка на ввода при загадке
         elif "actions" in currentStage.keys() and "check_input" in currentStage['actions']:
             res = check_for_input(message, currentStage) 
-            if userInfo[message.from_user.id]["check_input_started"] is False:
-                userInfo[message.from_user.id]["check_input_started"] = True
-                userInfo[message.from_user.id]["check_input_amout"] = 0
-            if res is True or userInfo[message.from_user.id]["check_input_amout"] >= currentStage["try_amount"]: # если правильный ответ, следующий блок
-                userInfo[message.from_user.id]["check_input_started"] = False
+            if userInfo[message.from_user.id].check_input_started is False:
+                userInfo[message.from_user.id].check_input_started = True
+                userInfo[message.from_user.id].check_input_amout = 0
+            if res is True or userInfo[message.from_user.id].check_input_amout >= currentStage["try_amount"]: # если правильный ответ, следующий блок
+                userInfo[message.from_user.id].check_input_started = False
                 sendNextStage(message.from_user.id)
                 return
             elif res is False: # если не правильно, увеличиваем число попыток, присылаем секцию wrong
-                userInfo[message.from_user.id]["check_input_amout"] += 1
-                sendStage(message.from_user.id, content['content'][userInfo[message.from_user.id]['stage']]['if_wrong'])
+                userInfo[message.from_user.id].check_input_amout += 1
+                sendStage(message.from_user.id, userInfo[message.from_user.id].currentStage()['if_wrong'])
                 return
              
         # проверка на ввод имени
         elif "actions" in currentStage.keys() and "checkName" in currentStage['actions']:
-            userInfo[message.from_user.id]['name'] = message.text
-            userInfo[message.from_user.id]['nameAnswered'] = True
+            print(message.text)
+            userInfo[message.from_user.id].name = message.text
+            userInfo[message.from_user.id].nameAnswered = True
             
         # check for right answer 
         if check_for_right_answer(message, currentStage): # ответ согласно кнопкам
             sendNextStage(message.from_user.id)
         else:
-            bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок') 
+            if userInfo[message.from_user.id].misinput < 2:
+                bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок')
+                userInfo[message.from_user.id].misinput += 1
+            else:
+                sendNextStage(message.from_user.id)
 
 
 @bot.poll_answer_handler()
