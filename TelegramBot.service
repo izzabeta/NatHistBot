@@ -1,0 +1,14 @@
+[Unit]
+Description=Natural Historic Excursion Bot
+After=syslog.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/TelegramBot/
+ExecStart=/root/TelegramBot/venv/bin/python3 bot.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
