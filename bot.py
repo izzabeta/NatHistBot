@@ -4,8 +4,10 @@ import json
 from User import User
 with open("text.json", "r", encoding='utf-8') as f:
     content = json.load(f)
+with open("telegramToken.json", "r", encoding='utf-8') as f:
+    tgConfig = json.load(f)
 
-bot = telebot.TeleBot(content['telegramToken'], parse_mode='MARKDOWN')
+bot = telebot.TeleBot(tgConfig['telegramToken'], parse_mode='MARKDOWN')
 userInfo = User.getDumps()
 
 
@@ -160,7 +162,22 @@ def check_for_right_answer(message, currentStage):
         if message.text == button['text']:
             return True
     return False
-    
+
+
+def is_cyrillic(text):
+        """Проверяет, состоит ли строка только из кириллических букв."""
+        return all(char.isalpha() and 'а' <= char <= 'я' for char in text.lower())
+
+def nameIsGood(text:str)->bool:
+    "Проверяет вводимое имя на условия"
+    if not text.isalpha():
+        return False
+    if not is_cyrillic(text):
+        return False
+    return True
+
+
+
 @bot.message_handler(content_types=['text'])
 def general_message_handler(message):
     global userInfo
@@ -227,9 +244,12 @@ def general_message_handler(message):
              
         # проверка на ввод имени
         elif "actions" in currentStage.keys() and "checkName" in currentStage['actions']:
-            print(message.text)
-            userInfo[message.from_user.id].name = message.text
-            userInfo[message.from_user.id].nameAnswered = True
+            if nameIsGood(message.text):
+                userInfo[message.from_user.id].name = message.text.lower().title()
+                userInfo[message.from_user.id].nameAnswered = True
+            else:
+                bot.send_message(message.from_user.id, text='Пожалуйста, введи свое имя *только русскими буквами одним словом*.')
+                return
             
         # check for right answer 
         if check_for_right_answer(message, currentStage): # ответ согласно кнопкам
