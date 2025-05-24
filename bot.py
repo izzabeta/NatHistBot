@@ -256,7 +256,7 @@ def general_message_handler(message):
             sendNextStage(message.from_user.id)
         else:
             if userInfo[message.from_user.id].misinput < 2:
-                bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок')
+                bot.send_message(message.from_user.id, text='Не понял ответ 🤔. Пожалуйста, нажми на одну из кнопок. \n\nЕсли кнопки пропали, отправь сообщение ещё 2 раза, и перейдешь на следующий этап.')
                 userInfo[message.from_user.id].misinput += 1
             else:
                 sendNextStage(message.from_user.id)
